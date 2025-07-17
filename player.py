@@ -12,7 +12,8 @@ class Player:
         self.inventory = {
             "Eisen": 0,
             "Kohle": 0,
-            "Magnesium": 0
+            "Magnesium": 0,
+            "Holz": 0
         }
         
         # Bewegungsgeschwindigkeit
@@ -22,7 +23,7 @@ class Player:
         self.color = (0, 150, 255)
         
     def move(self, dx, dy, world):
-        """Bewegt den Spieler um dx, dy Raster-Einheiten"""
+        """Bewegt den Spieler um dx, dy Raster-Einheiten (eingerastet)"""
         if dx == 0 and dy == 0:
             return
             
@@ -33,13 +34,36 @@ class Player:
         if world.is_valid_position(new_grid_x, new_grid_y):
             self.grid_x = new_grid_x
             self.grid_y = new_grid_y
+            # Position immer perfekt im Raster einrasten
             self.x = self.grid_x * self.tile_size
             self.y = self.grid_y * self.tile_size
+            
+    def mine_right(self, world):
+        """Baut das Feld rechts neben dem Spieler ab"""
+        target_x = self.grid_x + 1
+        target_y = self.grid_y
+        
+        material = world.collect_material(target_x, target_y)
+        if material:
+            self.add_to_inventory(material)
+            return True
+        return False
             
     def add_to_inventory(self, material):
         """Fügt Material zum Inventar hinzu"""
         if material in self.inventory:
             self.inventory[material] += 1
+            
+    def mine_right(self, world):
+        """Baut das Feld rechts neben dem Spieler ab"""
+        target_x = self.grid_x + 1
+        target_y = self.grid_y
+        
+        material = world.collect_material(target_x, target_y)
+        if material:
+            self.add_to_inventory(material)
+            return True
+        return False
             
     def draw(self, screen, camera_x, camera_y):
         """Zeichnet den Spieler auf dem Bildschirm"""

@@ -13,7 +13,8 @@ class World:
             "Eisen": (169, 169, 169),   # Grau
             "Kohle": (64, 64, 64),      # Dunkelgrau
             "Magnesium": (255, 215, 0), # Gold
-            "Stein": (128, 128, 128)    # Hellgrau
+            "Stein": (128, 128, 128),   # Hellgrau
+            "Wald": (0, 100, 0)         # Dunkelgrün
         }
         
         # Spawn-Position in der Mitte
@@ -39,9 +40,13 @@ class World:
                 if noise_val < -0.3:
                     material = "Kohle"
                 elif noise_val < -0.1:
-                    material = "Eisen"
+                    material = "Stein"  # Stein ist jetzt häufig
                 elif noise_val > 0.4:
-                    material = "Stein"
+                    material = "Stein"  # Auch bei hohen Werten
+                elif noise_val > 0.2 and noise_val <= 0.35:
+                    material = "Wald"
+                elif noise_val > 0.1 and noise_val <= 0.15 and random.random() < 0.3:
+                    material = "Eisen"  # Eisen ist jetzt selten
                 elif noise_val > 0.35 and random.random() < 0.1:
                     material = "Magnesium"  # Selten
                 else:
@@ -58,14 +63,25 @@ class World:
         
     def is_valid_position(self, x, y):
         """Überprüft ob Position gültig ist"""
-        return 0 <= x < self.world_size and 0 <= y < self.world_size
+        if not (0 <= x < self.world_size and 0 <= y < self.world_size):
+            return False
+            
+        # Nur auf Gras oder gesammelte Felder kann man gehen
+        tile = self.get_tile(x, y)
+        if tile:
+            return tile["material"] == "Gras" or tile["collected"]
+        return False
         
     def collect_material(self, x, y):
         """Sammelt Material an Position (x, y)"""
         tile = self.get_tile(x, y)
         if tile and not tile["collected"] and tile["material"] != "Gras":
             tile["collected"] = True
-            return tile["material"]
+            # Wald gibt Holz als Ressource
+            if tile["material"] == "Wald":
+                return "Holz"
+            else:
+                return tile["material"]
         return None
         
     def draw(self, screen, camera_x, camera_y, screen_width, screen_height):
@@ -93,6 +109,42 @@ class World:
                     # Tile zeichnen
                     pygame.draw.rect(screen, color,
                                    (screen_x, screen_y, self.tile_size, self.tile_size))
+                    
+                    # Spezielle Darstellung für Stein (geriffelt)
+                    if tile["material"] == "Stein" and not tile["collected"]:
+                        # Dunklere Linien für Riffel-Effekt
+                        riffle_color = tuple(max(0, c - 40) for c in color)
+                        # Horizontale Linien alle 4 Pixel
+                        for i in range(0, self.tile_size, 4):
+                            pygame.draw.line(screen, riffle_color, 
+                                           (screen_x, screen_y + i), 
+                                           (screen_x + self.tile_size, screen_y + i), 1)
+                        # Vertikale Linien alle 8 Pixel für Kreuzriffeln
+                        for i in range(0, self.tile_size, 8):
+                            pygame.draw.line(screen, riffle_color, 
+                                           (screen_x + i, screen_y), 
+                                           (screen_x + i, screen_y + self.tile_size), 1)
+                    
+                    # Spezielle Darstellung für Eisen (Metallglanz)
+                    if tile["material"] == "Eisen" and not tile["collected"]:
+                        # Hellere Punkte für Metallglanz
+                        shine_color = tuple(min(255, c + 50) for c in color)
+                        # Diagonale Glanzpunkte
+                        for i in range(4, self.tile_size - 4, 6):
+                            for j in range(4, self.tile_size - 4, 6):
+                                if (i + j) % 12 == 4:  # Diagonales Muster
+                                    pygame.draw.circle(screen, shine_color,
+                                                     (screen_x + i, screen_y + j), 1)
+                    
+                    # Spezielle Darstellung für Wald (Baum-Muster)
+                    if tile["material"] == "Wald" and not tile["collected"]:
+                        # Hellere Punkte für Baum-Textur
+                        tree_color = tuple(min(255, c + 30) for c in color)
+                        # Kleine Rechtecke als Bäume
+                        for i in range(4, self.tile_size - 4, 8):
+                            for j in range(4, self.tile_size - 4, 8):
+                                pygame.draw.rect(screen, tree_color,
+                                               (screen_x + i, screen_y + j, 4, 4))
                     
                     # Raster-Linien (optional, für 8-Bit Look)
                     pygame.draw.rect(screen, (50, 50, 50),

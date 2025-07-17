@@ -64,28 +64,21 @@ class Game:
                 if event.key == pygame.K_ESCAPE:
                     return False
                 elif event.key == pygame.K_SPACE:
-                    # Sammeln mit Leertaste
-                    material = self.world.collect_material(self.player.grid_x, self.player.grid_y)
-                    if material:
-                        self.player.add_to_inventory(material)
+                    # Feld rechts neben der Figur abbauen
+                    self.player.mine_right(self.world)
+                elif event.key == pygame.K_w:
+                    self.player.move(0, -1, self.world)
+                elif event.key == pygame.K_s:
+                    self.player.move(0, 1, self.world)
+                elif event.key == pygame.K_a:
+                    self.player.move(-1, 0, self.world)
+                elif event.key == pygame.K_d:
+                    self.player.move(1, 0, self.world)
         
         return True
         
     def update(self):
-        # Tastatur-Input für Bewegung
-        keys = pygame.key.get_pressed()
-        dx, dy = 0, 0
-        
-        if keys[pygame.K_w]:
-            dy = -1
-        if keys[pygame.K_s]:
-            dy = 1
-        if keys[pygame.K_a]:
-            dx = -1
-        if keys[pygame.K_d]:
-            dx = 1
-            
-        self.player.move(dx, dy, self.world)
+        # Kamera aktualisieren
         self.update_camera()
         
     def draw(self):
@@ -93,6 +86,16 @@ class Game:
         
         # Welt zeichnen
         self.world.draw(self.screen, self.camera_x, self.camera_y, self.SCREEN_WIDTH, self.SCREEN_HEIGHT)
+        
+        # Zielfläche (rechts neben dem Spieler) markieren
+        target_x = self.player.grid_x + 1
+        target_y = self.player.grid_y
+        if self.world.is_valid_position(target_x, target_y):
+            screen_x = target_x * self.TILE_SIZE - self.camera_x
+            screen_y = target_y * self.TILE_SIZE - self.camera_y
+            # Roten Rahmen um das Zielfeld zeichnen
+            pygame.draw.rect(self.screen, (255, 0, 0), 
+                           (screen_x, screen_y, self.TILE_SIZE, self.TILE_SIZE), 3)
         
         # Spieler zeichnen
         self.player.draw(self.screen, self.camera_x, self.camera_y)
