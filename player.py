@@ -13,7 +13,8 @@ class Player:
             "Eisen": 0,
             "Kohle": 0,
             "Magnesium": 0,
-            "Holz": 0
+            "Holz": 0,
+            "Stein": 0
         }
         
         # Bewegungsgeschwindigkeit

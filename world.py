@@ -21,6 +21,9 @@ class World:
         self.spawn_x = (self.world_size // 2) * tile_size
         self.spawn_y = (self.world_size // 2) * tile_size
         
+        # Gebäude-System
+        self.buildings = {}
+        
         # Welt generieren
         self.generate_world()
         
@@ -84,6 +87,28 @@ class World:
                 return tile["material"]
         return None
         
+    def place_building(self, x, y, building_type):
+        """Platziert ein Gebäude an Position (x, y)"""
+        if self.is_valid_position(x, y):
+            self.buildings[(x, y)] = {
+                "type": building_type,
+                "light_range": 4 if building_type == "Lagerfeuer" else 0
+            }
+            
+    def get_light_level(self, x, y):
+        """Berechnet das Lichtlevel an Position (x, y)"""
+        base_light = 0.3  # Grundhelligkeit
+        
+        for (bx, by), building in self.buildings.items():
+            if building["light_range"] > 0:
+                distance = max(abs(x - bx), abs(y - by))  # Chebyshev-Distanz
+                if distance <= building["light_range"]:
+                    # Licht wird mit Entfernung schwächer
+                    light_strength = 1.0 - (distance / building["light_range"])
+                    base_light = min(1.0, base_light + light_strength * 0.7)
+        
+        return base_light
+        
     def draw(self, screen, camera_x, camera_y, screen_width, screen_height):
         """Zeichnet die sichtbare Welt"""
         # Berechne welche Tiles sichtbar sind
@@ -102,9 +127,13 @@ class World:
                     # Grundfarbe
                     color = self.colors.get(tile["material"], (100, 100, 100))
                     
+                    # Lichtlevel anwenden
+                    light_level = self.get_light_level(x, y)
+                    color = tuple(int(c * light_level) for c in color)
+                    
                     # Wenn gesammelt, dunkler machen
                     if tile["collected"]:
-                        color = tuple(max(0, c - 50) for c in color)
+                        color = tuple(max(0, c - 30) for c in color)
                     
                     # Tile zeichnen
                     pygame.draw.rect(screen, color,
@@ -113,7 +142,7 @@ class World:
                     # Spezielle Darstellung für Stein (geriffelt)
                     if tile["material"] == "Stein" and not tile["collected"]:
                         # Dunklere Linien für Riffel-Effekt
-                        riffle_color = tuple(max(0, c - 40) for c in color)
+                        riffle_color = tuple(max(0, int(c * 0.7)) for c in color)
                         # Horizontale Linien alle 4 Pixel
                         for i in range(0, self.tile_size, 4):
                             pygame.draw.line(screen, riffle_color, 
@@ -128,7 +157,8 @@ class World:
                     # Spezielle Darstellung für Eisen (Metallglanz)
                     if tile["material"] == "Eisen" and not tile["collected"]:
                         # Hellere Punkte für Metallglanz
-                        shine_color = tuple(min(255, c + 50) for c in color)
+                        base_shine = tuple(min(255, c + 50) for c in self.colors["Eisen"])
+                        shine_color = tuple(int(c * light_level) for c in base_shine)
                         # Diagonale Glanzpunkte
                         for i in range(4, self.tile_size - 4, 6):
                             for j in range(4, self.tile_size - 4, 6):
@@ -139,7 +169,8 @@ class World:
                     # Spezielle Darstellung für Wald (Baum-Muster)
                     if tile["material"] == "Wald" and not tile["collected"]:
                         # Hellere Punkte für Baum-Textur
-                        tree_color = tuple(min(255, c + 30) for c in color)
+                        base_tree = tuple(min(255, c + 30) for c in self.colors["Wald"])
+                        tree_color = tuple(int(c * light_level) for c in base_tree)
                         # Kleine Rechtecke als Bäume
                         for i in range(4, self.tile_size - 4, 8):
                             for j in range(4, self.tile_size - 4, 8):
@@ -149,4 +180,20 @@ class World:
                     # Raster-Linien (optional, für 8-Bit Look)
                     pygame.draw.rect(screen, (50, 50, 50),
                                    (screen_x, screen_y, self.tile_size, self.tile_size), 1)
-                    
+        
+        # Gebäude zeichnen
+        for (bx, by), building in self.buildings.items():
+            if start_x <= bx < end_x and start_y <= by < end_y:
+                screen_x = bx * self.tile_size - camera_x
+                screen_y = by * self.tile_size - camera_y
+                
+                if building["type"] == "Lagerfeuer":
+                    # Lagerfeuer als oranges Quadrat mit Flammen-Effekt
+                    pygame.draw.rect(screen, (255, 140, 0),
+                                   (screen_x, screen_y, self.tile_size, self.tile_size))
+                    # Flammen-Punkte
+                    for i in range(8, self.tile_size - 8, 4):
+                        for j in range(8, self.tile_size - 8, 4):
+                            pygame.draw.circle(screen, (255, 69, 0),
+                                             (screen_x + i, screen_y + j), 2)
+                            

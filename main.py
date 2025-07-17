@@ -34,6 +34,13 @@ class Game:
         self.camera_x = 0
         self.camera_y = 0
         
+        # Baumenü
+        self.build_menu_open = False
+        self.selected_build_item = 0
+        self.build_items = [
+            {"name": "Lagerfeuer", "cost": {"Stein": 4, "Kohle": 4}}
+        ]
+        
     def update_camera(self):
         # Kamera folgt dem Spieler
         self.camera_x = self.player.x - self.SCREEN_WIDTH // 2
@@ -56,6 +63,58 @@ class Game:
         pos_text = self.font.render(f"Position: ({self.player.grid_x}, {self.player.grid_y})", True, self.WHITE)
         self.screen.blit(pos_text, (10, self.SCREEN_HEIGHT - 30))
         
+        # Baumenü anzeigen
+        if self.build_menu_open:
+            self.draw_build_menu()
+            
+    def draw_build_menu(self):
+        # Hintergrund für Baumenü
+        menu_width = 300
+        menu_height = 200
+        menu_x = self.SCREEN_WIDTH - menu_width - 10
+        menu_y = 10
+        
+        pygame.draw.rect(self.screen, (50, 50, 50), 
+                        (menu_x, menu_y, menu_width, menu_height))
+        pygame.draw.rect(self.screen, self.WHITE, 
+                        (menu_x, menu_y, menu_width, menu_height), 2)
+        
+        # Titel
+        title_text = self.font.render("Baumenü (B zum Schließen)", True, self.WHITE)
+        self.screen.blit(title_text, (menu_x + 10, menu_y + 10))
+        
+        # Bauoptionen
+        y_offset = menu_y + 50
+        for i, item in enumerate(self.build_items):
+            color = self.GREEN if i == self.selected_build_item else self.WHITE
+            
+            # Item Name
+            item_text = self.font.render(f"{i+1}. {item['name']}", True, color)
+            self.screen.blit(item_text, (menu_x + 10, y_offset))
+            
+            # Kosten anzeigen
+            cost_y = y_offset + 25
+            can_build = True
+            for material, amount in item["cost"].items():
+                player_amount = self.player.inventory.get(material, 0)
+                cost_color = self.GREEN if player_amount >= amount else (255, 0, 0)
+                if player_amount < amount:
+                    can_build = False
+                    
+                cost_text = self.font.render(f"  {material}: {amount} ({player_amount})", True, cost_color)
+                self.screen.blit(cost_text, (menu_x + 20, cost_y))
+                cost_y += 20
+            
+            # Bauanweisung
+            if i == self.selected_build_item:
+                if can_build:
+                    build_text = self.font.render("Drücke ENTER zum Bauen", True, self.GREEN)
+                else:
+                    build_text = self.font.render("Nicht genug Materialien", True, (255, 0, 0))
+                self.screen.blit(build_text, (menu_x + 10, cost_y + 10))
+            
+            y_offset = cost_y + 40
+        
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -63,19 +122,56 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return False
-                elif event.key == pygame.K_SPACE:
-                    # Feld rechts neben der Figur abbauen
-                    self.player.mine_right(self.world)
-                elif event.key == pygame.K_w:
-                    self.player.move(0, -1, self.world)
-                elif event.key == pygame.K_s:
-                    self.player.move(0, 1, self.world)
-                elif event.key == pygame.K_a:
-                    self.player.move(-1, 0, self.world)
-                elif event.key == pygame.K_d:
-                    self.player.move(1, 0, self.world)
+                elif event.key == pygame.K_b:
+                    # Baumenü öffnen/schließen
+                    self.build_menu_open = not self.build_menu_open
+                elif self.build_menu_open:
+                    # Baumenü Navigation
+                    if event.key == pygame.K_1:
+                        self.selected_build_item = 0
+                    elif event.key == pygame.K_RETURN:
+                        self.try_build_item()
+                elif not self.build_menu_open:
+                    # Normale Steuerung nur wenn Baumenü geschlossen
+                    if event.key == pygame.K_SPACE:
+                        # Feld rechts neben der Figur abbauen
+                        self.player.mine_right(self.world)
+                    elif event.key == pygame.K_w:
+                        self.player.move(0, -1, self.world)
+                    elif event.key == pygame.K_s:
+                        self.player.move(0, 1, self.world)
+                    elif event.key == pygame.K_a:
+                        self.player.move(-1, 0, self.world)
+                    elif event.key == pygame.K_d:
+                        self.player.move(1, 0, self.world)
         
         return True
+        
+    def try_build_item(self):
+        """Versucht das ausgewählte Item zu bauen"""
+        if self.selected_build_item >= len(self.build_items):
+            return
+            
+        item = self.build_items[self.selected_build_item]
+        
+        # Prüfen ob genug Materialien vorhanden
+        can_build = True
+        for material, amount in item["cost"].items():
+            if self.player.inventory.get(material, 0) < amount:
+                can_build = False
+                break
+        
+        if can_build:
+            # Materialien abziehen
+            for material, amount in item["cost"].items():
+                self.player.inventory[material] -= amount
+            
+            # Gebäude bauen
+            if item["name"] == "Lagerfeuer":
+                self.world.place_building(self.player.grid_x, self.player.grid_y, "Lagerfeuer")
+            
+            # Baumenü schließen
+            self.build_menu_open = False
         
     def update(self):
         # Kamera aktualisieren
